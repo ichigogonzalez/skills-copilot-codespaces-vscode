@@ -1,75 +1,45 @@
-// Create Web server that allows users to create, edit, and delete comments
-// User can create an account and login to see their comments
-// User can only edit and delete comments that they created
+// Create Web server application
+// Run: node comments.js
+// Test in browser: http://localhost:3000
 
 // Import modules
-const express = require('express');
-const bodyParser = require('body-parser');
-const morgan = require('morgan');
-const uuid = require('uuid');
-const mongoose = require('mongoose');
-const { check, validationResult } = require('express-validator');
-const cors = require('cors');
-const passport = require('passport');
-const { BasicStrategy } = require('passport-http');
-const jwt = require('jsonwebtoken');
-const { DATABASE_URL, PORT, SECRET_TOKEN } = require('./config');
-const { CommentList } = require('./model');
-const { User } = require('./model');
-const { Comment } = require('./model');
+var http = require('http');
+var url = require('url');
+var qs = require('querystring');
 
-const app = express();
+// Array to hold comments
+var comments = [];
 
-app.use(bodyParser.json());
-app.use(morgan('dev'));
-app.use(cors());
+// Create Web server
+http.createServer(function (req, res) {
+    // Get URL parts
+    var path = url.parse(req.url).pathname;
+    var query = url.parse(req.url).query;
 
-// Create BasicStrategy for passport
-const basicStrategy = new BasicStrategy((username, password, callback) => {
-  let user;
-  User
-    .findOne({ username: username })
-    .exec()
-    .then(_user => {
-      user = _user;
-      if (!user) {
-        return callback(null, false, { message: 'Incorrect username.' });
-      }
-      return user.validatePassword(password);
-    })
-    .then(isValid => {
-      if (!isValid) {
-        return callback(null, false, { message: 'Incorrect password.' });
-      }
-      else {
-        return callback(null, user);
-      }
-    })
-    .catch(err => callback(err));
-});
+    // Get query string as object
+    var q = qs.parse(query);
 
-passport.use(basicStrategy);
-app.use(passport.initialize());
+    // Check for query string
+    if (query) {
+        // Add comment to array
+        comments.push(q.comment);
+    }
 
-// Create JWTStrategy for passport
-const jwtStrategy = passport.authenticate('jwt', { session: false });
+    // Display comments
+    res.writeHead(200, {'Content-Type': 'text/html'});
+    res.write('<h1>Comments</h1>');
+    res.write('<ul>');
+    for (var i in comments) {
+        res.write('<li>' + comments[i] + '</li>');
+    }
+    res.write('</ul>');
 
-// Create JWT token
-function createAuthToken(user) {
-  return jwt.sign({ user }, SECRET_TOKEN, {
-    subject: user.username,
-    expiresIn: '7d',
-    algorithm: 'HS256'
-  });
-}
+    // Display form
+    res.write('<form method="get">');
+    res.write('<input name="comment">');
+    res.write('<input type="submit" value="Submit">');
+    res.write('</form>');
 
-// Create endpoint for login
-app.post('/api/login', passport.authenticate('basic', { session: false }), (req, res) => {
-  const authToken = createAuthToken(req.user.serialize());
-  res.json({ authToken });
-});
-
-// Create endpoint for register
-app.post('/api/users', (req, res) => {
-  const requiredFields = ['username', 'password', 'firstName', 'lastName'];
-  const missingField = requiredFields.find(field => !(field in req
+    // End response
+    res.end();
+}).listen(3000);
