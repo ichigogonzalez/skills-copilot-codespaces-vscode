@@ -1,45 +1,53 @@
 // Create Web server application
-// Run: node comments.js
-// Test in browser: http://localhost:3000
 
-// Import modules
-var http = require('http');
-var url = require('url');
-var qs = require('querystring');
+// Load modules
+const express = require('express');
+const bodyParser = require('body-parser');
+const fs = require('fs');
+const app = express();
 
-// Array to hold comments
-var comments = [];
+// Define port number
+const PORT = process.env.PORT || 3000;
 
-// Create Web server
-http.createServer(function (req, res) {
-    // Get URL parts
-    var path = url.parse(req.url).pathname;
-    var query = url.parse(req.url).query;
+// Set views directory
+app.set('views', './views');
 
-    // Get query string as object
-    var q = qs.parse(query);
+// Set view engine
+app.set('view engine', 'ejs');
 
-    // Check for query string
-    if (query) {
-        // Add comment to array
-        comments.push(q.comment);
-    }
+// Set body-parser middleware
+app.use(bodyParser.urlencoded({extended: false}));
 
-    // Display comments
-    res.writeHead(200, {'Content-Type': 'text/html'});
-    res.write('<h1>Comments</h1>');
-    res.write('<ul>');
-    for (var i in comments) {
-        res.write('<li>' + comments[i] + '</li>');
-    }
-    res.write('</ul>');
+// Set static middleware
+app.use('/public', express.static('public'));
 
-    // Display form
-    res.write('<form method="get">');
-    res.write('<input name="comment">');
-    res.write('<input type="submit" value="Submit">');
-    res.write('</form>');
+// Create a new comment
+app.post('/comments', (req, res) => {
+    // Get the comment from the form
+    let comment = req.body.comment;
+    // Read the comments from the file
+    let comments = fs.readFileSync('./data/comments.json', 'utf8');
+    // Convert the comments to an array
+    comments = JSON.parse(comments);
+    // Add the new comment to the array
+    comments.push(comment);
+    // Save the comments back to the file
+    fs.writeFileSync('./data/comments.json', JSON.stringify(comments));
+    // Redirect to the comments page
+    res.redirect('/comments');
+});
 
-    // End response
-    res.end();
-}).listen(3000);
+// Display all comments
+app.get('/comments', (req, res) => {
+    // Read the comments from the file
+    let comments = fs.readFileSync('./data/comments.json', 'utf8');
+    // Convert the comments to an array
+    comments = JSON.parse(comments);
+    // Render the comments page
+    res.render('comments', {comments: comments});
+});
+
+// Start the server
+app.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
+});
